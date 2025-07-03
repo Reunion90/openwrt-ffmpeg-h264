@@ -14,7 +14,7 @@ Simple build system for FFmpeg with H.264 support on OpenWrt 24.10.0 x86_64.
 
 ```bash
 # Clone repository
-git clone https://github.com/YOUR_USERNAME/openwrt-ffmpeg-h264.git
+git clone https://github.com/Reunion90E/openwrt-ffmpeg-h264.git
 cd openwrt-ffmpeg-h264
 
 # Make script executable
