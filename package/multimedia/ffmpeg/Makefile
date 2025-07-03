@@ -201,12 +201,15 @@ FFMPEG_CONFIGURE:= \
 	--target-os=linux \
 	--prefix="/usr" \
 	--pkg-config="pkg-config" \
+	--pkg-config-flags="--static" \
 	--enable-shared \
 	--enable-static \
 	--enable-pthreads \
 	--enable-zlib \
 	--disable-doc \
 	--disable-debug \
+	--disable-runtime-cpudetect \
+	--disable-asm \
 	\
 	--enable-gpl \
 	--enable-version3 \

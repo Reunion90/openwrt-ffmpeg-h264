@@ -47,6 +47,7 @@ CONFIGURE_ARGS += \
 	--enable-static \
 	--disable-cli \
 	--disable-asm \
+	--disable-opencl \
 	--enable-pic \
 	--bit-depth=8 \
 	--chroma-format=420 \
@@ -56,14 +57,27 @@ CONFIGURE_ARGS += \
 	--disable-lavf \
 	--disable-ffms \
 	--disable-gpac \
-	--disable-lsmash
+	--disable-lsmash \
+	--host=$(GNU_TARGET_NAME) \
+	--build=$(GNU_HOST_NAME)
 
 # Override configure detection of asm support
 CONFIGURE_VARS += \
 	AS="" \
-	ac_cv_prog_AS=""
+	ac_cv_prog_AS="" \
+	ac_cv_prog_NASM="" \
+	ac_cv_prog_YASM=""
 
-TARGET_CFLAGS += $(FPIC)
+TARGET_CFLAGS += $(FPIC) -fno-strict-aliasing
+TARGET_LDFLAGS += -Wl,--gc-sections
+
+define Build/Configure
+	( cd $(PKG_BUILD_DIR); \
+		$(CONFIGURE_VARS) \
+		./configure \
+			$(CONFIGURE_ARGS) \
+	)
+endef
 
 define Build/InstallDev
 	$(INSTALL_DIR) $(1)/usr/include/x264
