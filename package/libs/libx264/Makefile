@@ -59,14 +59,17 @@ CONFIGURE_ARGS += \
 	--disable-gpac \
 	--disable-lsmash \
 	--host=$(GNU_TARGET_NAME) \
-	--build=$(GNU_HOST_NAME)
+	--build=$(GNU_HOST_NAME) \
+	--cross-prefix=$(TARGET_CROSS)
 
-# Override configure detection of asm support
+# Force disable assembly completely
 CONFIGURE_VARS += \
 	AS="" \
 	ac_cv_prog_AS="" \
 	ac_cv_prog_NASM="" \
-	ac_cv_prog_YASM=""
+	ac_cv_prog_YASM="" \
+	asm=no \
+	HAVE_X86ASM=no
 
 TARGET_CFLAGS += $(FPIC) -fno-strict-aliasing
 TARGET_LDFLAGS += -Wl,--gc-sections
@@ -77,6 +80,9 @@ define Build/Configure
 		./configure \
 			$(CONFIGURE_ARGS) \
 	)
+	# Force disable assembly in config.h
+	$(SED) 's/HAVE_X86ASM 1/HAVE_X86ASM 0/g' $(PKG_BUILD_DIR)/config.h || true
+	$(SED) 's/ARCH_X86_64 1/ARCH_X86_64 0/g' $(PKG_BUILD_DIR)/config.h || true
 endef
 
 define Build/InstallDev
