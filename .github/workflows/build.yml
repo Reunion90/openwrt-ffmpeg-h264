@@ -81,27 +81,51 @@ jobs:
     - name: Configure feeds
       working-directory: ${{ env.SDK_DIR }}
       run: |
-        echo "src-git packages https://github.com/openwrt/packages.git;openwrt-24.10" >> feeds.conf.default
-        echo "src-git luci https://github.com/openwrt/luci.git;openwrt-24.10" >> feeds.conf.default
+        # Check and update feeds.conf.default safely
+        if ! grep -q "openwrt-24.10" feeds.conf.default; then
+          sed -i 's|src-git packages.*|src-git packages https://github.com/openwrt/packages.git;openwrt-24.10|g' feeds.conf.default
+          sed -i 's|src-git luci.*|src-git luci https://github.com/openwrt/luci.git;openwrt-24.10|g' feeds.conf.default
+        fi
+        cat feeds.conf.default
         ./scripts/feeds update -a
         ./scripts/feeds install -a
 
     - name: Configure build
       working-directory: ${{ env.SDK_DIR }}
       run: |
-        echo "CONFIG_PACKAGE_libx264=y" >> .config
+        # Create minimal config
+        echo "CONFIG_PACKAGE_libx264=y" > .config
         echo "CONFIG_PACKAGE_ffmpeg-full=y" >> .config
         make defconfig V=s
+        
+        # Verify packages are available
+        ./scripts/feeds list | grep -E "(libx264|ffmpeg)" || echo "Checking package availability..."
 
     - name: Build libx264
       working-directory: ${{ env.SDK_DIR }}
       run: |
-        make package/feeds/packages/libx264/compile V=s -j$(nproc)
+        # Try building from feeds first, fallback to custom package
+        if ./scripts/feeds list | grep -q "libx264"; then
+          echo "Building libx264 from feeds..."
+          make package/feeds/packages/libx264/compile V=s -j$(nproc) || \
+          make package/libx264/compile V=s -j$(nproc)
+        else
+          echo "Building libx264 from custom package..."
+          make package/libx264/compile V=s -j$(nproc)
+        fi
 
     - name: Build FFmpeg
       working-directory: ${{ env.SDK_DIR }}
       run: |
-        make package/ffmpeg/compile V=s -j$(nproc)
+        # Try building from feeds first, fallback to custom package
+        if ./scripts/feeds list | grep -q "ffmpeg"; then
+          echo "Building ffmpeg from feeds..."
+          make package/feeds/packages/ffmpeg/compile V=s -j$(nproc) || \
+          make package/ffmpeg/compile V=s -j$(nproc)
+        else
+          echo "Building ffmpeg from custom package..."
+          make package/ffmpeg/compile V=s -j$(nproc)
+        fi
 
     - name: Collect build artifacts
       run: |
