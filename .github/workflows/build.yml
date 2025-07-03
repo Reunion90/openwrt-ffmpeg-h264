@@ -2,6 +2,10 @@ name: Build FFmpeg + Codecs (OpenWrt 24.10 x86_64)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
   build:
