@@ -1,92 +1,106 @@
 # OpenWrt FFmpeg H.264 Build
 
-This project builds FFmpeg and FFprobe for OpenWrt 24.10 x86_64 with libx264 and H.264 support using GitHub Actions.
+Simple build system for FFmpeg with H.264 support on OpenWrt 24.10.0 x86_64.
 
-## Features
+## Quick Start
 
-- **Target Platform**: OpenWrt 24.10 x86_64
-- **FFmpeg Components**: ffmpeg, ffprobe
-- **Video Codecs**: H.264 encoding/decoding with libx264
-- **Build System**: GitHub Actions with OpenWrt SDK
-- **Output**: Ready-to-install .ipk packages
+### Automatic Build (GitHub Actions)
 
-## Build Process
-
-The GitHub Actions workflow automatically:
-
-1. Downloads OpenWrt 24.10.0 SDK for x86_64
-2. Configures the build environment
-3. Compiles libx264 as a dependency
-4. Builds FFmpeg with H.264 support
-5. Creates installable .ipk packages
-6. Uploads build artifacts
-
-## Usage
-
-### Automatic Build
-
-Push to the repository or manually trigger the workflow in GitHub Actions to start the build process.
+1. **Fork this repository** and enable Actions
+2. **Trigger workflow** manually or push changes
+3. **Download packages** from workflow artifacts
 
 ### Manual Build
 
-If you want to build locally with OpenWrt SDK:
-
 ```bash
-# Download OpenWrt SDK 24.10.0 for x86_64
-wget https://downloads.openwrt.org/releases/24.10.0/targets/x86/64/openwrt-sdk-24.10.0-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst
+# Clone repository
+git clone https://github.com/YOUR_USERNAME/openwrt-ffmpeg-h264.git
+cd openwrt-ffmpeg-h264
 
-# Extract SDK
-tar -xf openwrt-sdk-24.10.0-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst
-cd openwrt-sdk-24.10.0-x86-64_gcc-13.3.0_musl.Linux-x86_64
+# Make script executable
+chmod +x build-ffmpeg.sh
 
-# Copy package files
-cp -r /path/to/this/repo/package/* package/
-
-# Build
-make package/ffmpeg/compile V=s
+# Run build (requires Ubuntu/Debian with build tools)
+./build-ffmpeg.sh
 ```
-
-## Installation on OpenWrt
-
-After the build completes, download the .ipk files from GitHub Actions artifacts and install on your OpenWrt device:
-
-```bash
-# Copy .ipk files to your OpenWrt device
-scp *.ipk root@openwrt-device:/tmp/
-
-# Install on OpenWrt device
-ssh root@openwrt-device
-cd /tmp
-opkg install libx264_*.ipk
-opkg install ffmpeg_*.ipk
-```
-
-## Package Contents
-
-- **libx264**: H.264 encoding library
-- **ffmpeg**: Complete FFmpeg binary with H.264 support
-- **ffprobe**: Media analysis tool
-
-## Configuration
-
-The build includes the following FFmpeg features:
-
-- H.264 encoding/decoding (libx264)
-- Essential formats and protocols
-- Optimized for embedded systems
-- Minimal size footprint
 
 ## Requirements
 
-- OpenWrt 24.10 compatible device (x86_64)
-- Sufficient storage space (~10MB for full installation)
-- Internet connection for package installation
+- **Ubuntu/Debian** build environment
+- **Build tools**: gcc, make, wget, tar
+- **Internet connection** for downloading OpenWrt SDK
+- **~2GB disk space** for SDK and build
+
+## What It Builds
+
+- **FFmpeg** - Complete multimedia framework
+- **libx264** - H.264 encoding library (if needed)
+- **Dependencies** - Required libraries
+
+## Installation on OpenWrt
+
+```bash
+# Copy packages to OpenWrt device
+scp output/*.ipk root@192.168.1.1:/tmp/
+
+# Install packages
+ssh root@192.168.1.1
+cd /tmp
+opkg install *.ipk
+
+# Test installation
+ffmpeg -version
+ffprobe -version
+```
+
+## Usage Examples
+
+```bash
+# H.264 video encoding
+ffmpeg -i input.avi -c:v libx264 -preset medium output.mp4
+
+# Stream analysis
+ffprobe -v quiet -print_format json -show_streams video.mp4
+
+# Live streaming
+ffmpeg -f v4l2 -i /dev/video0 -c:v libx264 -f rtp rtp://224.1.1.1:5004
+```
+
+## Features
+
+- ✅ **OpenWrt 24.10.0** x86_64 target
+- ✅ **H.264 encoding/decoding** support
+- ✅ **Automatic builds** via GitHub Actions
+- ✅ **Simple build script** for local builds
+- ✅ **Ready-to-install** .ipk packages
+
+## Build Process
+
+1. **Downloads** OpenWrt SDK 24.10.0 for x86_64
+2. **Updates** package feeds
+3. **Configures** build for multimedia packages
+4. **Builds** FFmpeg and dependencies
+5. **Collects** .ipk packages in `output/` directory
+
+## Troubleshooting
+
+### Build Fails
+- Check internet connection for SDK download
+- Ensure all build dependencies are installed
+- Check available disk space (need ~2GB)
+
+### No Packages Generated
+- Review build logs for specific errors
+- Some packages may not be available in OpenWrt 24.10.0 feeds
+- Try building individual components
+
+### Installation Issues
+- Verify OpenWrt device architecture (x86_64)
+- Check available storage on OpenWrt device
+- Install dependencies first if needed
 
 ## License
 
-FFmpeg and libx264 are distributed under their respective licenses:
-
-- FFmpeg: LGPL v2.1+ / GPL v2+
-- libx264: GPL v2+
-
-Please ensure compliance with these licenses when distributing the compiled packages.
+Code: MIT License  
+FFmpeg: LGPL/GPL (see FFmpeg documentation)  
+libx264: GPL v2+ (see x264 documentation)

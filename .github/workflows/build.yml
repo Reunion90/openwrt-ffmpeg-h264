@@ -1,168 +1,28 @@
-name: Build FFmpeg for OpenWrt 24.10 x86_64
+name: Build FFmpeg + Codecs (OpenWrt 24.10 x86_64)
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
   workflow_dispatch:
-
-env:
-  OPENWRT_VERSION: "24.10.0"
-  TARGET: "x86"
-  SUBTARGET: "64"
-  OPENWRT_SDK_URL: "https://downloads.openwrt.org/releases/24.10.0/targets/x86/64/openwrt-sdk-24.10.0-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
-    
+    runs-on: ubuntu-latest
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout this repo
+        uses: actions/checkout@v3
 
-    - name: Free up disk space
-      run: |
-        sudo rm -rf /usr/share/dotnet
-        sudo rm -rf /usr/local/lib/android
-        sudo rm -rf /opt/ghc
-        sudo rm -rf /opt/hostedtoolcache/CodeQL
-        sudo apt-get clean
-        df -h
+      - name: Install Build Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential clang flex g++ gawk \
+            gettext git libncurses-dev libssl-dev python3 \
+            python3-pyelftools unzip zlib1g-dev file wget
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          build-essential \
-          ccache \
-          ecj \
-          fastjar \
-          file \
-          g++ \
-          gawk \
-          gettext \
-          git \
-          java-propose-classpath \
-          libelf-dev \
-          libncurses5-dev \
-          libncursesw5-dev \
-          libssl-dev \
-          python3 \
-          python3-dev \
-          python3-distutils \
-          python3-setuptools \
-          rsync \
-          subversion \
-          swig \
-          time \
-          unzip \
-          wget \
-          xsltproc \
-          zlib1g-dev
+      - name: Run Build Script
+        run: bash build-ffmpeg.sh
 
-    - name: Download OpenWrt SDK
-      run: |
-        wget -O openwrt-sdk.tar.zst "$OPENWRT_SDK_URL"
-        tar -xf openwrt-sdk.tar.zst
-        ls -la
-
-    - name: Setup SDK environment
-      run: |
-        SDK_DIR=$(find . -maxdepth 1 -name "openwrt-sdk-*" -type d)
-        echo "SDK_DIR=$SDK_DIR" >> $GITHUB_ENV
-        echo "Found SDK directory: $SDK_DIR"
-
-    - name: Copy custom packages
-      run: |
-        echo "Copying custom libx264 and FFmpeg packages..."
-        cp -r package/* "$SDK_DIR/package/"
-        echo "Packages copied:"
-        ls -la "$SDK_DIR/package/" | grep -E "(libx264|ffmpeg|multimedia|libs)"
-
-    - name: Configure feeds
-      working-directory: ${{ env.SDK_DIR }}
-      run: |
-        # Check and update feeds.conf.default safely
-        if ! grep -q "openwrt-24.10" feeds.conf.default; then
-          sed -i 's|src-git packages.*|src-git packages https://github.com/openwrt/packages.git;openwrt-24.10|g' feeds.conf.default
-          sed -i 's|src-git luci.*|src-git luci https://github.com/openwrt/luci.git;openwrt-24.10|g' feeds.conf.default
-        fi
-        cat feeds.conf.default
-        ./scripts/feeds update -a
-        ./scripts/feeds install -a
-
-    - name: List available packages
-      working-directory: ${{ env.SDK_DIR }}
-      run: |
-        echo "=== Available FFmpeg packages ==="
-        ./scripts/feeds list | grep -i ffmpeg || echo "No ffmpeg packages found"
-        echo ""
-        echo "=== Available x264 packages ==="
-        ./scripts/feeds list | grep -i x264 || echo "No x264 packages found"
-        echo ""
-        echo "=== Available multimedia packages ==="
-        ./scripts/feeds list | grep -E "(multimedia|video|codec)" || echo "No multimedia packages found"
-        echo ""
-        echo "=== All packages in feeds ==="
-        ./scripts/feeds list | head -20
-
-    - name: Configure build
-      working-directory: ${{ env.SDK_DIR }}
-      run: |
-        # Since feeds don't have libx264, use our custom packages
-        echo "CONFIG_PACKAGE_libx264=y" > .config
-        echo "CONFIG_PACKAGE_ffmpeg-full=y" >> .config
-        make defconfig V=s
-
-    - name: Build libx264 (custom package)
-      working-directory: ${{ env.SDK_DIR }}
-      run: |
-        echo "Building custom libx264 package..."
-        make package/libx264/compile V=s -j$(nproc)
-
-    - name: Build FFmpeg (custom package)
-      working-directory: ${{ env.SDK_DIR }}
-      run: |
-        echo "Building custom FFmpeg package..."
-        make package/ffmpeg/compile V=s -j$(nproc)
-
-    - name: Collect build artifacts
-      run: |
-        mkdir -p artifacts
-        find "$SDK_DIR" -name "*.ipk" -type f | while read file; do
-          if [[ "$file" == *"ffmpeg"* ]] || [[ "$file" == *"libx264"* ]]; then
-            cp "$file" artifacts/
-          fi
-        done
-        ls -la artifacts/
-
-    - name: Generate build info
-      run: |
-        echo "# Build Information" > artifacts/BUILD_INFO.md
-        echo "" >> artifacts/BUILD_INFO.md
-        echo "**Build Date**: $(date -u)" >> artifacts/BUILD_INFO.md
-        echo "**OpenWrt Version**: $OPENWRT_VERSION" >> artifacts/BUILD_INFO.md
-        echo "**Target**: $TARGET/$SUBTARGET" >> artifacts/BUILD_INFO.md
-        echo "**Git Commit**: $GITHUB_SHA" >> artifacts/BUILD_INFO.md
-        echo "" >> artifacts/BUILD_INFO.md
-        echo "## Package Files" >> artifacts/BUILD_INFO.md
-        echo "" >> artifacts/BUILD_INFO.md
-        ls -la artifacts/*.ipk | awk '{print "- " $9 " (" $5 " bytes)"}' >> artifacts/BUILD_INFO.md || true
-
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: openwrt-ffmpeg-h264-${{ env.OPENWRT_VERSION }}-${{ env.TARGET }}-${{ env.SUBTARGET }}
-        path: artifacts/
-        retention-days: 30
-
-    - name: Create release on tag
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
-      with:
-        files: artifacts/*.ipk
-        body_path: artifacts/BUILD_INFO.md
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload .ipk Files
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-x86-packages
+          path: output/*.ipk
