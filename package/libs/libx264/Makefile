@@ -1,12 +1,3 @@
-#
-# Copyright (C) 2006-2016 OpenWrt.org
-#
-# This is free software, licensed under the GNU General Public License v2.
-# See /LICENSE for more information.
-#
-
-include $(TOPDIR)/rules.mk
-
 PKG_NAME:=libx264
 PKG_VERSION:=20240513
 PKG_RELEASE:=1
@@ -39,9 +30,11 @@ endef
 define Package/libx264/description
   x264 is a free software library and application for encoding video streams
   into the H.264/MPEG-4 AVC compression format, and is released under the
-  terms of the GNU GPL.
+  terms of the GNU GPL. This version is compiled without assembly optimizations
+  for maximum compatibility with cross-compilation.
 endef
 
+# Completely disable assembly and use only C code
 CONFIGURE_ARGS += \
 	--enable-shared \
 	--enable-static \
@@ -62,16 +55,17 @@ CONFIGURE_ARGS += \
 	--build=$(GNU_HOST_NAME) \
 	--cross-prefix=$(TARGET_CROSS)
 
-# Force disable assembly completely
+# Force disable all assembly-related tools and features
 CONFIGURE_VARS += \
-	AS="" \
+	AS=":" \
 	ac_cv_prog_AS="" \
 	ac_cv_prog_NASM="" \
 	ac_cv_prog_YASM="" \
 	asm=no \
-	HAVE_X86ASM=no
+	HAVE_X86ASM=no \
+	have_x86inc=no
 
-TARGET_CFLAGS += $(FPIC) -fno-strict-aliasing
+TARGET_CFLAGS += $(FPIC) -fno-strict-aliasing -DHAVE_MALLOC_H
 TARGET_LDFLAGS += -Wl,--gc-sections
 
 define Build/Configure
@@ -80,9 +74,9 @@ define Build/Configure
 		./configure \
 			$(CONFIGURE_ARGS) \
 	)
-	# Force disable assembly in config.h
-	$(SED) 's/HAVE_X86ASM 1/HAVE_X86ASM 0/g' $(PKG_BUILD_DIR)/config.h || true
-	$(SED) 's/ARCH_X86_64 1/ARCH_X86_64 0/g' $(PKG_BUILD_DIR)/config.h || true
+	# Ensure no assembly is compiled
+	find $(PKG_BUILD_DIR) -name "*.asm" -delete || true
+	find $(PKG_BUILD_DIR) -name "*-asm.c" -delete || true
 endef
 
 define Build/InstallDev

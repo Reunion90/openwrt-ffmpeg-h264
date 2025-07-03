@@ -73,16 +73,12 @@ jobs:
         echo "SDK_DIR=$SDK_DIR" >> $GITHUB_ENV
         echo "Found SDK directory: $SDK_DIR"
 
-    - name: Copy package files (if needed)
+    - name: Copy custom packages
       run: |
-        # Only copy custom packages if we need customizations
-        if [ -d "package/multimedia/ffmpeg" ]; then
-          echo "Custom FFmpeg package detected, copying..."
-          cp -r package/* "$SDK_DIR/package/" || true
-        else
-          echo "Using feeds packages only"
-        fi
-        ls -la "$SDK_DIR/package/" | head -10
+        echo "Copying custom libx264 and FFmpeg packages..."
+        cp -r package/* "$SDK_DIR/package/"
+        echo "Packages copied:"
+        ls -la "$SDK_DIR/package/" | grep -E "(libx264|ffmpeg|multimedia|libs)"
 
     - name: Configure feeds
       working-directory: ${{ env.SDK_DIR }}
@@ -96,35 +92,40 @@ jobs:
         ./scripts/feeds update -a
         ./scripts/feeds install -a
 
+    - name: List available packages
+      working-directory: ${{ env.SDK_DIR }}
+      run: |
+        echo "=== Available FFmpeg packages ==="
+        ./scripts/feeds list | grep -i ffmpeg || echo "No ffmpeg packages found"
+        echo ""
+        echo "=== Available x264 packages ==="
+        ./scripts/feeds list | grep -i x264 || echo "No x264 packages found"
+        echo ""
+        echo "=== Available multimedia packages ==="
+        ./scripts/feeds list | grep -E "(multimedia|video|codec)" || echo "No multimedia packages found"
+        echo ""
+        echo "=== All packages in feeds ==="
+        ./scripts/feeds list | head -20
+
     - name: Configure build
       working-directory: ${{ env.SDK_DIR }}
       run: |
-        # Create minimal config - try to use feeds packages first
+        # Since feeds don't have libx264, use our custom packages
         echo "CONFIG_PACKAGE_libx264=y" > .config
         echo "CONFIG_PACKAGE_ffmpeg-full=y" >> .config
         make defconfig V=s
-        
-        # Check if feeds packages are available
-        ./scripts/feeds list | grep -E "(libx264|ffmpeg)" || echo "Will use custom packages..."
-        
-        # Show available packages
-        make menuconfig V=s &
-        sleep 2
-        pkill menuconfig || true
 
-    - name: Build libx264
+    - name: Build libx264 (custom package)
       working-directory: ${{ env.SDK_DIR }}
       run: |
-        # Use feeds packages exclusively
-        echo "Building libx264 from OpenWrt feeds..."
-        make package/feeds/packages/libx264/compile V=s -j$(nproc)
+        echo "Building custom libx264 package..."
+        make package/libx264/compile V=s -j$(nproc)
 
-    - name: Build FFmpeg
+    - name: Build FFmpeg (custom package)
       working-directory: ${{ env.SDK_DIR }}
       run: |
-        # Use feeds packages exclusively  
-        echo "Building ffmpeg from OpenWrt feeds..."
-        make package/feeds/packages/ffmpeg/compile V=s -j$(nproc)
+        echo "Building custom FFmpeg package..."
+        make package/ffmpeg/compile V=s -j$(nproc)
 
     - name: Collect build artifacts
       run: |
